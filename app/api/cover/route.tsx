@@ -1,44 +1,56 @@
 import { ImageResponse } from 'next/og';
 import { Client } from '@notionhq/client';
 
-export const runtime = 'edge'; // High speed, low latency
+export const runtime = 'edge';
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   
-  // Theme Toggle: Defaults to Dark
+  // Notion-Specific Color Palette
   const isDark = searchParams.get('theme') !== 'light';
-  const bgColor = isDark ? '#0F172A' : '#F8FAFC';
-  const textColor = isDark ? '#F1F5F9' : '#1E293B';
+  const bgColor = isDark ? '#191919' : '#FFFFFF';
+  const textColor = isDark ? '#FFFFFF' : '#37352F';
+  const subTextColor = isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(55, 53, 47, 0.6)';
 
   try {
-    // 1. Fetch from Notion
     const response = await notion.databases.query({
       database_id: process.env.NOTION_DATABASE_ID!,
-      page_size: 100, // Fetch up to 100 for randomizing
+      page_size: 100,
     });
 
-    // 2. Pick a random entry
     const results = response.results;
     const randomEntry = results[Math.floor(Math.random() * results.length)] as any;
-    const codeSnippet = randomEntry.properties.Name.title[0]?.plain_text || "Be the Rarity.";
     
-    // 3. Return the Image with Cache-Control headers
+    // Fetching both Name (Quote) and Author from your DB
+    const quote = randomEntry.properties.Name.title[0]?.plain_text || "Rarity earns respect.";
+    const author = randomEntry.properties.Author?.rich_text[0]?.plain_text || "";
+
     return new ImageResponse(
       (
         <div style={{
           height: '100%', width: '100%', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', backgroundColor: bgColor,
-          padding: '80px', textAlign: 'center', fontFamily: 'sans-serif'
+          padding: '40px 100px', textAlign: 'center',
         }}>
-          <div style={{ fontSize: 48, fontWeight: 'bold', color: textColor, marginBottom: '20px' }}>
-            {codeSnippet}
+          {/* Big H2 Style Quote */}
+          <div style={{ 
+            fontSize: 68, fontWeight: 700, color: textColor, 
+            lineHeight: 1.1, marginBottom: author ? 30 : 0,
+            letterSpacing: '-0.02em'
+          }}>
+            {quote}
           </div>
-          <div style={{ fontSize: 18, color: isDark ? '#64748B' : '#94A3B8', letterSpacing: '0.1em' }}>
-            DAILY CODE
-          </div>
+          
+          {/* Subtle Author Text */}
+          {author && (
+            <div style={{ 
+              fontSize: 28, fontWeight: 500, color: subTextColor 
+            }}>
+              — {author}
+            </div>
+          )}
         </div>
       ),
       {
@@ -51,7 +63,6 @@ export async function GET(request: Request) {
       }
     );
   } catch (e: any) {
-    // This will print the actual Notion error to your browser screen
-    return new Response(`Error: ${e.message} | Check your Token or Property Name.`, { status: 500 });
+    return new Response(`Error: ${e.message}`, { status: 500 });
   }
 }
