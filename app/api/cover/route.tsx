@@ -23,8 +23,8 @@ export async function GET(request: Request) {
     // 2. Pick a random entry
     const results = response.results;
     const randomEntry = results[Math.floor(Math.random() * results.length)] as any;
-    const codeSnippet = randomEntry.properties.Code.title[0]?.plain_text || "Be the Rarity.";
-
+    const codeSnippet = randomEntry.properties.Name.title[0]?.plain_text || "Be the Rarity.";
+    
     // 3. Return the Image with Cache-Control headers
     return new ImageResponse(
       (
