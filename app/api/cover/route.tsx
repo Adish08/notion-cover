@@ -5,16 +5,38 @@ export const runtime = 'edge';
 
 const notion = new Client({ auth: process.env.NOTION_TOKEN });
 
+// Helper to fetch Google Fonts binary
+async function getFontData(fontFamily: string) {
+  const url = `https://fonts.googleapis.com/css2?family=${fontFamily.replace(/ /g, '+')}:wght@700`;
+  const css = await (await fetch(url)).text();
+  const resource = css.match(/src: url\((.+)\) format\('(opentype|truetype)'\)/);
+  
+  if (!resource) {
+    // Fallback if the specific weight/format isn't found
+    const fallback = css.match(/src: url\((.+)\)/);
+    if (fallback) return fetch(fallback[1]).then((res) => res.arrayBuffer());
+    throw new Error('Font not found');
+  }
+
+  return fetch(resource[1]).then((res) => res.arrayBuffer());
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   
-  // Notion-Specific Color Palette
+  // Theme & Font Config
   const isDark = searchParams.get('theme') !== 'light';
+  const fontParam = searchParams.get('font') || 'Space Grotesk';
+  
   const bgColor = isDark ? '#191919' : '#FFFFFF';
   const textColor = isDark ? '#FFFFFF' : '#37352F';
   const subTextColor = isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(55, 53, 47, 0.6)';
 
   try {
+    // 1. Fetch Font Data (Defaults to Space Grotesk)
+    const fontData = await getFontData(fontParam);
+
+    // 2. Fetch from Notion
     const response = await notion.databases.query({
       database_id: process.env.NOTION_DATABASE_ID!,
       page_size: 100,
@@ -22,8 +44,6 @@ export async function GET(request: Request) {
 
     const results = response.results;
     const randomEntry = results[Math.floor(Math.random() * results.length)] as any;
-    
-    // Fetching both Name (Quote) and Author from your DB
     const quote = randomEntry.properties.Name.title[0]?.plain_text || "Rarity earns respect.";
     const author = randomEntry.properties.Author?.rich_text[0]?.plain_text || "";
 
@@ -32,22 +52,19 @@ export async function GET(request: Request) {
         <div style={{
           height: '100%', width: '100%', display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', backgroundColor: bgColor,
-          padding: '40px 100px', textAlign: 'center',
+          padding: '60px 120px', textAlign: 'center',
+          fontFamily: 'CustomFont', // Link to the loaded font
         }}>
-          {/* Big H2 Style Quote */}
           <div style={{ 
-            fontSize: 68, fontWeight: 700, color: textColor, 
+            fontSize: 72, fontWeight: 700, color: textColor, 
             lineHeight: 1.1, marginBottom: author ? 30 : 0,
-            letterSpacing: '-0.02em'
+            letterSpacing: '-0.03em'
           }}>
             {quote}
           </div>
           
-          {/* Subtle Author Text */}
           {author && (
-            <div style={{ 
-              fontSize: 28, fontWeight: 500, color: subTextColor 
-            }}>
+            <div style={{ fontSize: 32, fontWeight: 500, color: subTextColor }}>
               — {author}
             </div>
           )}
@@ -55,10 +72,15 @@ export async function GET(request: Request) {
       ),
       {
         width: 1500, height: 600,
+        fonts: [
+          {
+            name: 'CustomFont',
+            data: fontData,
+            style: 'normal',
+          },
+        ],
         headers: {
           'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0',
         },
       }
     );
