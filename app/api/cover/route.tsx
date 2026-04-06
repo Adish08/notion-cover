@@ -50,7 +50,8 @@ export async function GET(request: Request) {
         },
       }
     );
-  } catch (e) {
-    return new Response(`Failed to generate image`, { status: 500 });
+  } catch (e: any) {
+    // This will print the actual Notion error to your browser screen
+    return new Response(`Error: ${e.message} | Check your Token or Property Name.`, { status: 500 });
   }
 }
